@@ -397,6 +397,165 @@
             background: linear-gradient(135deg, rgba(0, 119, 181, 0.9) 0%, rgba(14, 118, 168, 0.9) 100%);
         }
 
+        /* Dark Mode Toggle */
+        .theme-toggle {
+            position: fixed;
+            top: 24px;
+            right: 24px;
+            width: 48px;
+            height: 48px;
+            border-radius: 50%;
+            background: rgba(255, 255, 255, 0.7);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            border: 1px solid rgba(255, 255, 255, 0.8);
+            box-shadow: 0 4px 16px rgba(139, 92, 246, 0.1);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            z-index: 1000;
+            animation: fadeIn 0.8s ease-out 0.5s both;
+        }
+
+        .theme-toggle:hover {
+            transform: scale(1.1);
+            box-shadow: 0 6px 20px rgba(139, 92, 246, 0.15);
+        }
+
+        .theme-toggle:active {
+            transform: scale(0.95);
+        }
+
+        .theme-icon {
+            font-size: 20px;
+            transition: transform 0.5s ease;
+        }
+
+        .theme-toggle:active .theme-icon {
+            transform: rotate(180deg);
+        }
+
+        /* Dark Mode Styles */
+        body.dark-mode {
+            background: linear-gradient(135deg, #1a1d29 0%, #2d1b3d 50%, #3d1f3f 100%);
+        }
+
+        body.dark-mode .container {
+            background: rgba(26, 29, 41, 0.8);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
+        }
+
+        body.dark-mode .header {
+            background: rgba(0, 0, 0, 0.3);
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        body.dark-mode .avatar {
+            border: 4px solid rgba(139, 92, 246, 0.3);
+            box-shadow: 0 8px 32px rgba(139, 92, 246, 0.4);
+        }
+
+        body.dark-mode .name {
+            color: #ffffff;
+        }
+
+        body.dark-mode .title {
+            color: #9ca3af;
+        }
+
+        body.dark-mode .company {
+            color: #a78bfa;
+        }
+
+        body.dark-mode .services {
+            color: #9ca3af;
+        }
+
+        body.dark-mode .save-contact-btn {
+            background: rgba(139, 92, 246, 0.25);
+            border: 1px solid rgba(139, 92, 246, 0.4);
+            color: #a78bfa;
+        }
+
+        body.dark-mode .save-contact-btn:hover {
+            background: rgba(139, 92, 246, 0.35);
+            border-color: rgba(139, 92, 246, 0.5);
+        }
+
+        body.dark-mode .section-title {
+            color: #9ca3af;
+        }
+
+        body.dark-mode .contact-item {
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            color: #ffffff;
+        }
+
+        body.dark-mode .contact-item:hover {
+            background: rgba(255, 255, 255, 0.08);
+            box-shadow: 0 8px 16px rgba(139, 92, 246, 0.2);
+        }
+
+        body.dark-mode .icon {
+            background: rgba(139, 92, 246, 0.15);
+            border: 1px solid rgba(139, 92, 246, 0.3);
+            color: #a78bfa;
+        }
+
+        body.dark-mode .icon[style*="3b82f6"] {
+            background: rgba(59, 130, 246, 0.15) !important;
+            border: 1px solid rgba(59, 130, 246, 0.3) !important;
+            color: #60a5fa !important;
+        }
+
+        body.dark-mode .icon[style*="pink-accent"] {
+            color: #f472b6;
+        }
+
+        body.dark-mode .contact-label {
+            color: #9ca3af;
+        }
+
+        body.dark-mode .contact-value {
+            color: #ffffff;
+        }
+
+        body.dark-mode .link-btn {
+            background: rgba(139, 92, 246, 0.2);
+            border: 1px solid rgba(139, 92, 246, 0.3);
+            color: #a78bfa;
+        }
+
+        body.dark-mode .link-btn:hover {
+            background: rgba(139, 92, 246, 0.3);
+            box-shadow: 0 8px 20px rgba(139, 92, 246, 0.25);
+        }
+
+        body.dark-mode .link-btn.booking {
+            background: rgba(59, 130, 246, 0.2);
+            border: 1px solid rgba(59, 130, 246, 0.3);
+            color: #60a5fa;
+        }
+
+        body.dark-mode .link-btn.booking:hover {
+            background: rgba(59, 130, 246, 0.3);
+            box-shadow: 0 8px 20px rgba(59, 130, 246, 0.25);
+        }
+
+        body.dark-mode .link-icon {
+            background: rgba(255, 255, 255, 0.1);
+        }
+
+        body.dark-mode .theme-toggle {
+            background: rgba(26, 29, 41, 0.8);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            box-shadow: 0 4px 16px rgba(0, 0, 0, 0.3);
+        }
+
         /* Toast Notification */
         .toast {
             position: fixed;
@@ -423,6 +582,11 @@
             transform: translateX(-50%) translateY(0);
         }
 
+        body.dark-mode .toast {
+            background: rgba(255, 255, 255, 0.1);
+            backdrop-filter: blur(20px);
+        }
+
         @media (max-width: 480px) {
             .container {
                 border-radius: 24px;
@@ -443,6 +607,11 @@
     </style>
 </head>
 <body>
+    <!-- Dark Mode Toggle -->
+    <button class="theme-toggle" onclick="toggleTheme()" aria-label="Toggle Dark Mode">
+        <span class="theme-icon" id="theme-icon">☀️</span>
+    </button>
+
     <div class="container">
         <div class="header">
             <div class="accent-gradient"></div>
@@ -560,6 +729,42 @@
     <div class="toast" id="toast"></div>
 
     <script>
+        // ============================================
+        // DARK MODE TOGGLE
+        // ============================================
+        
+        // Initialize theme on page load (default: light mode)
+        document.addEventListener('DOMContentLoaded', () => {
+            const savedTheme = localStorage.getItem('theme');
+            // Nur Dark Mode aktivieren wenn explizit gespeichert
+            if (savedTheme === 'dark') {
+                document.body.classList.add('dark-mode');
+                updateThemeIcon();
+            }
+        });
+
+        // Toggle zwischen Light und Dark Mode
+        function toggleTheme() {
+            document.body.classList.toggle('dark-mode');
+            const isDark = document.body.classList.contains('dark-mode');
+            
+            // Speichere Präferenz
+            localStorage.setItem('theme', isDark ? 'dark' : 'light');
+            
+            // Update Icon
+            updateThemeIcon();
+            
+            // Zeige Feedback
+            showToast(isDark ? '🌙 Dark Mode aktiviert' : '☀️ Light Mode aktiviert');
+        }
+
+        // Update Theme Icon
+        function updateThemeIcon() {
+            const icon = document.getElementById('theme-icon');
+            const isDark = document.body.classList.contains('dark-mode');
+            icon.textContent = isDark ? '🌙' : '☀️';
+        }
+
         // ============================================
         // KONTAKT DATEN
         // ============================================
