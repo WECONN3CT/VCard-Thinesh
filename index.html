@@ -1151,99 +1151,413 @@
       }, 3000);
     }
 
-    // Save contact
+    // ============================================
+    // UNIVERSAL VCARD DOWNLOAD - FÜR ALLE BROWSER
+    // ============================================
+    
+    // Generiere vCard im 3.0 Format (beste Kompatibilität)
+    function generateVCard() {
+      // Formatiere die Adresse korrekt für vCard
+      const addressParts = contact.address.split(',');
+      const street = addressParts[0]?.trim() || '';
+      const cityZip = addressParts[1]?.trim() || '';
+      const zipMatch = cityZip.match(/(\d+)\s+(.+)/);
+      const zip = zipMatch ? zipMatch[1] : '';
+      const city = zipMatch ? zipMatch[2] : cityZip;
+      
+      // vCard 3.0 Standard - maximale Kompatibilität
+      const vcard = [
+        'BEGIN:VCARD',
+        'VERSION:3.0',
+        `FN:${contact.name}`,
+        `N:${contact.name.split(' ')[1] || ''};${contact.name.split(' ')[0] || ''};;;`,
+        `ORG:${contact.company}`,
+        `TITLE:${contact.title}`,
+        `TEL;TYPE=WORK,VOICE:${contact.phone}`,
+        `EMAIL;TYPE=INTERNET,WORK:${contact.email}`,
+        `ADR;TYPE=WORK:;;${street};${city};;${zip};Deutschland`,
+        `URL;TYPE=WORK:${contact.website}`,
+        contact.linkedin ? `URL:${contact.linkedin}` : '',
+        contact.instagram ? `URL:${contact.instagram}` : '',
+        'END:VCARD'
+      ].filter(line => line).join('\r\n');
+      
+      return vcard;
+    }
+    
+    // Hauptfunktion zum Speichern des Kontakts
     async function saveContact() {
       vibrate([30, 20, 30]);
       
-      // Erstelle vCard-Daten (VCF-Format)
-      const vcard = `BEGIN:VCARD
-VERSION:3.0
-FN:${contact.name}
-ORG:${contact.company}
-TITLE:${contact.title}
-TEL;TYPE=WORK,VOICE:${contact.phone}
-EMAIL:${contact.email}
-ADR;TYPE=WORK:;;${contact.address};;;
-URL:${contact.website}
-URL;TYPE=LinkedIn:${contact.linkedin}
-URL;TYPE=Instagram:${contact.instagram}
-END:VCARD`;
-      
+      const vcard = generateVCard();
       const filename = `${contact.name.replace(/\s+/g, '_')}.vcf`;
-      const blob = new Blob([vcard], { type: 'text/x-vcard;charset=utf-8' });
       
-      // Versuch 1: Web Share API (am besten für mobile Geräte)
-      if (navigator.share && navigator.canShare) {
-        try {
-          const shareTypes = ['text/x-vcard', 'text/vcard', 'application/vcard'];
-          for (const mime of shareTypes) {
-            const file = new File([vcard], filename, { type: mime });
+      // Browser-Erkennung
+      const ua = navigator.userAgent || navigator.vendor || window.opera;
+      const isSamsung = /SamsungBrowser/i.test(ua);
+      const isChrome = /Chrome/i.test(ua) && !/Edg|Samsung/i.test(ua);
+      const isAndroid = /android/i.test(ua);
+      const isIOS = /iPad|iPhone|iPod/.test(ua) && !window.MSStream;
+      
+      console.log('Browser Info:', {
+        userAgent: ua,
+        isSamsung,
+        isChrome,
+        isAndroid,
+        isIOS
+      });
+      
+      // Strategie 1: Versuche Web Share API mit File
+      if (await tryWebShareWithFile(vcard, filename)) {
+        return;
+      }
+      
+      // Strategie 2: Data URI in neuem Tab/Window (funktioniert bei Samsung Internet!)
+      if ((isSamsung || isAndroid || isIOS) && await tryDataURIMethod(vcard, filename)) {
+        return;
+      }
+      
+      // Strategie 3: Blob Download mit DOM-Manipulation
+      if (await tryBlobDownload(vcard, filename)) {
+        return;
+      }
+      
+      // Strategie 4: Letzter Fallback - Manuelles Kopieren
+      showManualCopyFallback(vcard);
+    }
+    
+    // Methode 1: Web Share API mit File-Objekt
+    async function tryWebShareWithFile(vcard, filename) {
+      if (!navigator.share || !navigator.canShare) {
+        console.log('Web Share API nicht verfügbar');
+        return false;
+      }
+      
+      try {
+        // Versuche verschiedene MIME-Types
+        const mimeTypes = ['text/vcard', 'text/x-vcard', 'text/directory'];
+        
+        for (const mimeType of mimeTypes) {
+          try {
+            const file = new File([vcard], filename, { type: mimeType });
+            
             if (navigator.canShare({ files: [file] })) {
+              console.log(`Versuche Share mit ${mimeType}...`);
               await navigator.share({
                 files: [file],
                 title: contact.name,
-                text: `${contact.title} bei ${contact.company}`
+                text: `Kontakt: ${contact.name}`
               });
               showToast('✅ Kontakt erfolgreich geteilt!');
-              return;
+              return true;
             }
-          }
-        } catch (error) {
-          // Wenn Benutzer abbricht oder Fehler auftritt, fahre mit Fallback fort
-          if (error.name !== 'AbortError') {
-            console.log('Share API fehlgeschlagen, nutze Fallback:', error);
-          } else {
-            // User hat abgebrochen
-            showToast('ℹ️ Teilen abgebrochen');
-            return;
-          }
-        }
-      }
-      
-      // Versuch 2: Download-Link (Fallback für Desktop und ältere Browser)
-      try {
-        const url = URL.createObjectURL(blob);
-        const link = document.createElement('a');
-        link.href = url;
-        link.download = filename;
-        
-        // Für iOS: Öffne in neuem Tab mit data URI
-        const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
-        const isAndroid = /Android/i.test(navigator.userAgent);
-        
-        if (isIOS) {
-          // Für iOS: Erstelle data URI und öffne in neuem Tab
-          const reader = new FileReader();
-          reader.onload = function() {
-            const dataUrl = reader.result;
-            const newWindow = window.open(dataUrl, '_blank');
-            if (newWindow) {
-              showToast('✅ Kontakt öffnet sich in neuem Tab - Bitte speichern!');
-            } else {
-              // Fallback: Versuche normalen Download
-              link.click();
-              showToast('✅ Kontakt wird heruntergeladen...');
-            }
-            URL.revokeObjectURL(url);
-          };
-          reader.readAsDataURL(blob);
-        } else {
-          // Für Android und Desktop: Normaler Download
-          document.body.appendChild(link);
-          link.click();
-          document.body.removeChild(link);
-          URL.revokeObjectURL(url);
-          // Hinweis speziell für Android
-          if (isAndroid) {
-            showToast('✅ Kontakt geladen. Öffne die Datei in „Downloads“, um zu importieren.');
-          } else {
-            showToast('✅ Kontakt wird gespeichert...');
+          } catch (e) {
+            console.log(`Share mit ${mimeType} fehlgeschlagen:`, e);
           }
         }
       } catch (error) {
-        console.error('Download fehlgeschlagen:', error);
-        showToast('❌ Fehler beim Speichern des Kontakts');
+        if (error.name === 'AbortError') {
+          showToast('ℹ️ Teilen abgebrochen');
+          return true; // User hat abgebrochen, kein weiterer Versuch nötig
+        }
+        console.log('Web Share fehlgeschlagen:', error);
       }
+      
+      return false;
+    }
+    
+    // Methode 2: Data URI in neuem Tab/Window (BESTE METHODE FÜR SAMSUNG INTERNET!)
+    async function tryDataURIMethod(vcard, filename) {
+      try {
+        console.log('Versuche Data URI Methode...');
+        
+        // Erstelle Blob mit korrektem MIME-Type
+        const blob = new Blob([vcard], { type: 'text/x-vcard;charset=utf-8' });
+        
+        return new Promise((resolve) => {
+          const reader = new FileReader();
+          
+          reader.onload = function() {
+            const dataUrl = reader.result;
+            
+            // Versuche zuerst in neuem Tab zu öffnen
+            const newTab = window.open('', '_blank');
+            
+            if (newTab) {
+              // Erstelle eine simple HTML-Seite mit Download-Link
+              newTab.document.write(`
+                <!DOCTYPE html>
+                <html lang="de">
+                <head>
+                  <meta charset="UTF-8">
+                  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+                  <title>Kontakt speichern</title>
+                  <style>
+                    * { margin: 0; padding: 0; box-sizing: border-box; }
+                    body {
+                      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+                      display: flex;
+                      flex-direction: column;
+                      align-items: center;
+                      justify-content: center;
+                      min-height: 100vh;
+                      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+                      color: white;
+                      padding: 20px;
+                      text-align: center;
+                    }
+                    .container {
+                      background: rgba(255, 255, 255, 0.1);
+                      backdrop-filter: blur(10px);
+                      padding: 40px;
+                      border-radius: 20px;
+                      max-width: 500px;
+                    }
+                    h1 { font-size: 24px; margin-bottom: 20px; }
+                    .download-btn {
+                      display: inline-block;
+                      padding: 16px 32px;
+                      background: white;
+                      color: #667eea;
+                      text-decoration: none;
+                      border-radius: 12px;
+                      font-weight: 600;
+                      font-size: 18px;
+                      margin: 20px 0;
+                      box-shadow: 0 4px 20px rgba(0, 0, 0, 0.2);
+                      transition: transform 0.2s;
+                    }
+                    .download-btn:active {
+                      transform: scale(0.95);
+                    }
+                    .info {
+                      font-size: 14px;
+                      opacity: 0.9;
+                      margin-top: 20px;
+                      line-height: 1.6;
+                    }
+                    .emoji { font-size: 48px; margin-bottom: 20px; }
+                  </style>
+                </head>
+                <body>
+                  <div class="container">
+                    <div class="emoji">📇</div>
+                    <h1>Kontakt herunterladen</h1>
+                    <p>Tippe auf den Button, um den Kontakt zu speichern</p>
+                    <a href="${dataUrl}" download="${filename}" class="download-btn" onclick="setTimeout(() => window.close(), 1000)">
+                      📥 ${contact.name} speichern
+                    </a>
+                    <div class="info">
+                      <strong>Hinweis:</strong><br>
+                      Nach dem Download öffne die Datei in deiner Kontakte-App oder im Download-Ordner.
+                    </div>
+                  </div>
+                  <script>
+                    // Auto-trigger download nach kurzer Verzögerung
+                    setTimeout(() => {
+                      const link = document.querySelector('.download-btn');
+                      link.click();
+                    }, 500);
+                  </script>
+                </body>
+                </html>
+              `);
+              newTab.document.close();
+              
+              showToast('✅ Kontakt öffnet sich in neuem Tab!');
+              resolve(true);
+            } else {
+              // Popup wurde blockiert - versuche direkten Download
+              const link = document.createElement('a');
+              link.href = dataUrl;
+              link.download = filename;
+              link.style.display = 'none';
+              document.body.appendChild(link);
+              link.click();
+              document.body.removeChild(link);
+              
+              showToast('✅ Kontakt wird heruntergeladen...');
+              resolve(true);
+            }
+          };
+          
+          reader.onerror = function() {
+            console.log('FileReader Fehler');
+            resolve(false);
+          };
+          
+          reader.readAsDataURL(blob);
+        });
+      } catch (error) {
+        console.log('Data URI Methode fehlgeschlagen:', error);
+        return false;
+      }
+    }
+    
+    // Methode 3: Standard Blob Download
+    async function tryBlobDownload(vcard, filename) {
+      try {
+        console.log('Versuche Blob Download...');
+        
+        // Versuche verschiedene MIME-Types
+        const mimeTypes = ['text/x-vcard', 'text/vcard', 'text/directory;profile=vCard', 'application/vcard'];
+        
+        for (const mimeType of mimeTypes) {
+          try {
+            const blob = new Blob([vcard], { type: `${mimeType};charset=utf-8` });
+            const url = URL.createObjectURL(blob);
+            
+            const link = document.createElement('a');
+            link.href = url;
+            link.download = filename;
+            link.style.display = 'none';
+            
+            // Wichtig: Link muss im DOM sein für einige Browser
+            document.body.appendChild(link);
+            
+            // Trigger Download
+            link.click();
+            
+            // Cleanup
+            setTimeout(() => {
+              document.body.removeChild(link);
+              URL.revokeObjectURL(url);
+            }, 100);
+            
+            const isAndroid = /android/i.test(navigator.userAgent);
+            if (isAndroid) {
+              showToast('✅ Kontakt heruntergeladen!\n📁 Öffne die .vcf Datei im Download-Ordner');
+            } else {
+              showToast('✅ Kontakt wird gespeichert...');
+            }
+            
+            return true;
+          } catch (e) {
+            console.log(`Blob Download mit ${mimeType} fehlgeschlagen:`, e);
+          }
+        }
+        
+        return false;
+      } catch (error) {
+        console.log('Blob Download komplett fehlgeschlagen:', error);
+        return false;
+      }
+    }
+    
+    // Fallback: Manuelles Kopieren der vCard-Daten
+    function showManualCopyFallback(vcard) {
+      console.log('Alle automatischen Methoden fehlgeschlagen - zeige manuellen Fallback');
+      
+      const userWantsCopy = confirm(
+        '⚠️ Automatischer Download nicht möglich.\n\n' +
+        'Möchtest du die Kontaktdaten in die Zwischenablage kopieren?\n\n' +
+        'Du kannst sie dann manuell als .vcf Datei speichern.'
+      );
+      
+      if (userWantsCopy) {
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+          navigator.clipboard.writeText(vcard)
+            .then(() => {
+              showToast('✅ Kontaktdaten kopiert!');
+              setTimeout(() => {
+                alert(
+                  '📋 Kontaktdaten wurden kopiert!\n\n' +
+                  'So fügst du den Kontakt manuell hinzu:\n\n' +
+                  '1. Öffne einen Text-Editor\n' +
+                  '2. Füge die Daten ein (Strg+V / Cmd+V)\n' +
+                  '3. Speichere als "' + contact.name.replace(/\s+/g, '_') + '.vcf"\n' +
+                  '4. Öffne die Datei mit deiner Kontakte-App'
+                );
+              }, 500);
+            })
+            .catch(err => {
+              console.error('Kopieren fehlgeschlagen:', err);
+              showVCardInTextarea(vcard);
+            });
+        } else {
+          showVCardInTextarea(vcard);
+        }
+      } else {
+        showToast('ℹ️ Vorgang abgebrochen');
+      }
+    }
+    
+    // Zeige vCard-Daten in einem Textfeld zum manuellen Kopieren
+    function showVCardInTextarea(vcard) {
+      const overlay = document.createElement('div');
+      overlay.style.cssText = `
+        position: fixed;
+        inset: 0;
+        background: rgba(0, 0, 0, 0.8);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        z-index: 10000;
+        padding: 20px;
+      `;
+      
+      const container = document.createElement('div');
+      container.style.cssText = `
+        background: white;
+        border-radius: 16px;
+        padding: 24px;
+        max-width: 500px;
+        width: 100%;
+        max-height: 80vh;
+        overflow: auto;
+      `;
+      
+      container.innerHTML = `
+        <h2 style="margin: 0 0 16px 0; color: #1F2937;">Kontaktdaten</h2>
+        <p style="margin-bottom: 16px; color: #6B7280; font-size: 14px;">
+          Kopiere diese Daten und speichere sie als .vcf Datei:
+        </p>
+        <textarea readonly style="
+          width: 100%;
+          height: 300px;
+          padding: 12px;
+          border: 2px solid #E5E7EB;
+          border-radius: 8px;
+          font-family: monospace;
+          font-size: 12px;
+          resize: vertical;
+        ">${vcard}</textarea>
+        <div style="display: flex; gap: 8px; margin-top: 16px;">
+          <button onclick="
+            navigator.clipboard.writeText(this.parentElement.previousElementSibling.value);
+            alert('✅ Kopiert!');
+          " style="
+            flex: 1;
+            padding: 12px;
+            background: #8B5CF6;
+            color: white;
+            border: none;
+            border-radius: 8px;
+            font-weight: 600;
+            cursor: pointer;
+          ">📋 Kopieren</button>
+          <button onclick="this.closest('div').parentElement.parentElement.remove()" style="
+            flex: 1;
+            padding: 12px;
+            background: #E5E7EB;
+            color: #1F2937;
+            border: none;
+            border-radius: 8px;
+            font-weight: 600;
+            cursor: pointer;
+          ">Schließen</button>
+        </div>
+      `;
+      
+      overlay.appendChild(container);
+      document.body.appendChild(overlay);
+      
+      // Schließe bei Klick außerhalb
+      overlay.addEventListener('click', (e) => {
+        if (e.target === overlay) {
+          overlay.remove();
+        }
+      });
     }
 
     // Share functionality
