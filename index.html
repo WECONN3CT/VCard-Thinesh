@@ -1324,10 +1324,19 @@
       font-size: 18px;
       margin: 20px 0;
       box-shadow: 0 4px 20px rgba(0, 0, 0, 0.2);
-      transition: transform 0.2s;
+      transition: all 0.3s;
+      cursor: pointer;
+    }
+    .download-btn:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 6px 25px rgba(0, 0, 0, 0.3);
     }
     .download-btn:active {
       transform: scale(0.95);
+    }
+    .download-btn.clicked {
+      background: #4CAF50;
+      color: white;
     }
     .info {
       font-size: 14px;
@@ -1336,31 +1345,87 @@
       line-height: 1.6;
     }
     .emoji { font-size: 48px; margin-bottom: 20px; }
+    .status {
+      margin-top: 20px;
+      padding: 12px 20px;
+      background: rgba(255, 255, 255, 0.15);
+      border-radius: 8px;
+      font-size: 14px;
+      font-weight: 500;
+      display: none;
+    }
+    .status.show {
+      display: block;
+    }
+    .close-btn {
+      margin-top: 20px;
+      padding: 10px 24px;
+      background: rgba(255, 255, 255, 0.2);
+      border: 1px solid rgba(255, 255, 255, 0.3);
+      color: white;
+      border-radius: 8px;
+      cursor: pointer;
+      font-size: 14px;
+      transition: all 0.3s;
+      display: none;
+    }
+    .close-btn.show {
+      display: inline-block;
+    }
+    .close-btn:hover {
+      background: rgba(255, 255, 255, 0.3);
+    }
   </style>
 </head>
 <body>
   <div class="container">
     <div class="emoji">📇</div>
     <h1>Kontakt herunterladen</h1>
-    <p>Tippe auf den Button, um den Kontakt zu speichern</p>
-    <a href="${dataUrl}" download="${filename}" class="download-btn" onclick="setTimeout(function(){ window.close(); }, 1000)">
+    <p id="mainText">Tippe auf den Button, um den Kontakt zu speichern</p>
+    <a href="${dataUrl}" download="${filename}" class="download-btn" id="downloadBtn">
       📥 ${contact.name} speichern
     </a>
+    <div class="status" id="status">✅ Download gestartet!</div>
     <div class="info">
       <strong>Hinweis:</strong><br>
       Nach dem Download öffne die Datei in deiner Kontakte-App oder im Download-Ordner.
     </div>
+    <button class="close-btn" id="closeBtn" onclick="window.close()">Fenster schließen</button>
   </div>
 </body>
 </html>`;
               newTab.document.write(downloadPageHTML);
               newTab.document.close();
               
-              // Trigger Download nach kurzem Delay
+              // Warte bis Seite geladen ist, dann trigger Download
               setTimeout(() => {
-                const link = newTab.document.querySelector('.download-btn');
-                if (link) link.click();
-              }, 500);
+                try {
+                  const link = newTab.document.getElementById('downloadBtn');
+                  const status = newTab.document.getElementById('status');
+                  const closeBtn = newTab.document.getElementById('closeBtn');
+                  const mainText = newTab.document.getElementById('mainText');
+                  
+                  if (link) {
+                    // Auto-Click für Samsung Browser
+                    link.click();
+                    
+                    // Visuelles Feedback
+                    link.classList.add('clicked');
+                    link.innerHTML = '✅ Download gestartet!';
+                    if (status) status.classList.add('show');
+                    if (mainText) mainText.textContent = 'Download wurde gestartet!';
+                    
+                    // Zeige Schließen-Button nach 3 Sekunden
+                    setTimeout(() => {
+                      if (closeBtn) {
+                        closeBtn.classList.add('show');
+                      }
+                    }, 3000);
+                  }
+                } catch (e) {
+                  console.log('Auto-Download Fehler:', e);
+                }
+              }, 800);
               
               showToast('✅ Kontakt öffnet sich in neuem Tab!');
               resolve(true);
